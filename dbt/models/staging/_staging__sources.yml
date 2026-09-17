@@ -5,6 +5,8 @@ sources:
   - name: raw_gtfs
     database: gtfs          # the read-only attached database (see profiles.yml)
     schema: raw_gtfs
+    meta:
+      classification: public   # see docs/classification.md (PIA-lite threshold assessment)
     description: >
       Raw static GTFS schedule tables for TfNSW Sydney Trains, loaded verbatim
       (all columns as text) from the daily GTFS ZIP bundle. Classification: public.
@@ -22,6 +24,8 @@ sources:
   - name: raw_rt
     database: gtfs
     schema: raw_rt
+    meta:
+      classification: public   # see docs/classification.md
     description: >
       Realtime GTFS-R trip updates, one row per (snapshot, trip, stop). Appended
       every 60s across the collection run. _loaded_at identifies the snapshot.

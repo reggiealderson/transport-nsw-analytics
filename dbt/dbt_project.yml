@@ -16,6 +16,10 @@ clean-targets:
 
 models:
   transport_nsw_analytics:
+    # Every model in this project is public — see docs/classification.md.
+    # Set once here so the classification travels in metadata and shows in dbt docs.
+    +meta:
+      classification: public
     # Staging + intermediate are lightweight views over the raw (read-only) data.
     staging:
       +materialized: view
