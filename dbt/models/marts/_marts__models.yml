@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: fct_stop_delays
+    description: >
+      Analysis-ready fact: one estimated (or predicted) arrival delay per trip+stop,
+      with station, line, and confidence. This model carries the core DAMA-DMBOK data
+      quality tests for the project (see docs/ scorecard):
+        * Completeness  -> not_null on trip_id, stop_id (and warn on arrival_delay_seconds)
+        * Uniqueness    -> unique on stop_delay_key (one estimate per trip+stop)
+        * Validity      -> accepted_values on confidence
+        * Consistency   -> singular test tests/assert_delay_within_sane_range.sql
+        * Referential integrity -> tested upstream on stg_rt__trip_updates.trip_id
+        * Timeliness    -> singular test tests/assert_snapshot_cadence.sql
+    columns:
+      - name: stop_delay_key
+        description: Surrogate key, trip_id || '-' || stop_id. DAMA UNIQUENESS.
+        data_tests: [not_null, unique]
+      - name: trip_id
+        description: DAMA COMPLETENESS — must always be present.
+        data_tests: [not_null]
+      - name: stop_id
+        description: DAMA COMPLETENESS — must always be present.
+        data_tests: [not_null]
+      - name: arrival_delay_seconds
+        description: >
+          Estimated arrival delay in seconds (positive = late). DAMA COMPLETENESS,
+          warn-only: some stop updates legitimately carry only a departure delay.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: confidence
+        description: DAMA VALIDITY — only these two values are allowed.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['estimated_actual', 'prediction']
+      - name: station
+        description: Parent-station name (falls back to platform name if none).
+        data_tests: [not_null]

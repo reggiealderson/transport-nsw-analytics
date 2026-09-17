@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  # Static GTFS bundle — loaded once into gtfs.duckdb by explore_gtfs.py.
+  - name: raw_gtfs
+    database: gtfs          # the read-only attached database (see profiles.yml)
+    schema: raw_gtfs
+    description: >
+      Raw static GTFS schedule tables for TfNSW Sydney Trains, loaded verbatim
+      (all columns as text) from the daily GTFS ZIP bundle. Classification: public.
+    tables:
+      - name: stops
+        description: Stations (parent) and platforms (child), one hierarchy. See DATA_FINDINGS §2.5.
+      - name: stop_times
+        description: Scheduled arrival/departure per trip per stop. ~1.2M rows. Times are text and can exceed 24:00:00.
+      - name: trips
+        description: One row per scheduled train journey. trip_id is the join key to realtime data.
+      - name: routes
+        description: Train lines (T1, T2, ...). route_type=2 is rail.
+
+  # Realtime trip updates — appended snapshot-by-snapshot by poll_rt.py.
+  - name: raw_rt
+    database: gtfs
+    schema: raw_rt
+    description: >
+      Realtime GTFS-R trip updates, one row per (snapshot, trip, stop). Appended
+      every 60s across the collection run. _loaded_at identifies the snapshot.
+    tables:
+      - name: trip_updates
+        description: Per-snapshot stop-level delay predictions. See DATA_FINDINGS §3.
+        loaded_at_field: _loaded_at

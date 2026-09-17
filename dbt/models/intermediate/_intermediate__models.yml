@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: int_rt__latest_update
+    description: >
+      The last observed delay per (trip, stop), with a confidence classification of
+      'estimated_actual' vs 'prediction' (DATA_FINDINGS §3.6–3.7). One row per trip+stop.
+    columns:
+      - name: trip_id
+        data_tests: [not_null]
+      - name: stop_id
+        data_tests: [not_null]
+      - name: confidence
+        description: "'estimated_actual' (stop was dropped from the feed) or 'prediction' (still present at cutoff)."
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['estimated_actual', 'prediction']

@@ -1,0 +1,56 @@
+version: 2
+
+models:
+  - name: stg_gtfs__stops
+    description: Cleaned stops — parent stations and child platforms, with the empty-string parent_station normalised to NULL.
+    columns:
+      - name: stop_id
+        description: Platform- or station-level stop id. Primary key.
+        data_tests: [not_null, unique]
+      - name: stop_name
+        description: Human-readable stop name.
+
+  - name: stg_gtfs__stop_times
+    description: Scheduled stop events. Times kept as text (can exceed 24:00:00) plus a seconds-past-midnight helper.
+    columns:
+      - name: trip_id
+        description: FK to trips.
+        data_tests: [not_null]
+      - name: stop_id
+        description: FK to stops (platform level).
+        data_tests: [not_null]
+
+  - name: stg_gtfs__trips
+    description: One row per scheduled train journey.
+    columns:
+      - name: trip_id
+        description: Primary key; join key to the realtime feed.
+        data_tests: [not_null, unique]
+
+  - name: stg_gtfs__routes
+    description: Train lines. route_type = 2 is rail.
+    columns:
+      - name: route_id
+        description: Primary key.
+        data_tests: [not_null, unique]
+
+  - name: stg_rt__trip_updates
+    description: Realtime trip updates with parsed timestamps. snapshot_ts identifies the poll.
+    columns:
+      - name: trip_id
+        description: >
+          Join key to the static schedule. DAMA dimension: REFERENTIAL INTEGRITY —
+          every realtime trip_id should exist in the static trips table (the
+          ORPHAN_RATE check, DATA_FINDINGS §3.2). Warn-only because 'ADDED' trips can
+          legitimately be absent from the schedule.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_gtfs__trips')
+                field: trip_id
+              config:
+                severity: warn
+      - name: snapshot_ts
+        description: The poll time; shared by all rows in one snapshot.
+        data_tests: [not_null]

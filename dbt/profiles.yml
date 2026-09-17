@@ -1,0 +1,20 @@
+# dbt-duckdb profile for the TfNSW analytics project.
+#
+# Key design choice: dbt writes its models into a SEPARATE file (analytics.duckdb)
+# and attaches the raw collection database (gtfs.duckdb) READ-ONLY. This means dbt
+# never competes with the long-running poller for the single-writer lock on
+# gtfs.duckdb — the poller keeps exclusive write access; dbt only reads it.
+#
+# Paths are relative to the directory dbt is run from — always run dbt from inside
+# this `dbt/` directory (the two .duckdb files live one level up, in the repo root).
+transport_nsw_analytics:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ../analytics.duckdb
+      threads: 4
+      attach:
+        - path: ../gtfs.duckdb
+          alias: gtfs
+          read_only: true
