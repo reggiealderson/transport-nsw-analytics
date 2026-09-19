@@ -83,10 +83,9 @@ s.append(train(452, base - 22, scale=1.15))
 s.append(f'<path d="M {524},{base-30:.1f} h30" class="accent" stroke="#1c7ed6" stroke-width="0" />')
 s.append(f'<line x1="524" y1="{base-30:.1f}" x2="{sched_x-2}" y2="{base-30:.1f}" class="arrow" stroke-width="1.4"/>')
 s.append(f'<text x="524" y="{base-34:.1f}" class="muted" font-size="11">running late</text>')
-# wordmark / tagline
-s.append('<text x="24" y="48" class="title" font-size="26" letter-spacing="-0.5">One Delayed Friday</text>')
-s.append('<text x="24" y="76" class="muted" font-size="14">A day of Sydney train data — through the lens of dbt and data governance.</text>')
-s.append('<text x="24" y="100" class="muted" font-size="11.5" opacity="0.85">TfNSW GTFS-Realtime · 8.26M rows collected · 51,111 estimated-actual arrivals analysed</text>')
+# tagline (title is rendered as the page heading, so it is not repeated here)
+s.append('<text x="24" y="58" class="muted" font-size="14">A weekday of Sydney train data, explored with dbt and data governance.</text>')
+s.append('<text x="24" y="82" class="muted" font-size="11.5" opacity="0.85">TfNSW GTFS-Realtime · 8.26M rows collected · 51,111 estimated-actual arrivals analysed</text>')
 s.append("</svg>")
 with open(f"{OUT}/hero.svg", "w") as f:
     f.write("".join(s))
