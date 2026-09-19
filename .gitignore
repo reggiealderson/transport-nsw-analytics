@@ -22,3 +22,11 @@ dbt/target/
 dbt/logs/
 dbt/dbt_packages/
 dbt/.user.yml
+
+# Internal / working files — kept locally, not published to the public repo
+PROJECT_PLAN.md
+docs/article_draft.md
+copy_to_portfolio.sh
+exploration_queries.py
+explore_gts.ipynb
+test_poller.py

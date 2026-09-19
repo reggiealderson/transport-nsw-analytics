@@ -42,7 +42,6 @@ poll_rt.py                 # the long-running realtime collector (writes to gtfs
 explore_gtfs.py            # loads the static GTFS timetable into gtfs.duckdb
 make_charts.py             # generates the article's data charts (theme-aware SVG)
 make_diagrams.py           # generates the hero, pipeline, and governance diagrams
-copy_to_portfolio.sh       # regenerates charts/diagrams/docs and copies them to the site
 
 dbt/
   models/staging/          # one model per raw table: casts, renames, gotcha handling
