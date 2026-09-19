@@ -89,7 +89,7 @@ s.append('<text x="0" y="26" class="title" font-size="16">Midday, not rush hour,
 s.append('<text x="0" y="46" class="muted" font-size="12">Average arrival delay (bars, left axis) with the number of trips running each hour (line, right axis). Friday 18 Sep 2026.</text>')
 # legend
 s.append('<rect x="0" y="58" width="13" height="12" class="bar"/><text x="18" y="68" font-size="11">avg delay (min)</text>')
-s.append('<line x1="150" y1="64" x2="176" y2="64" class="tline" stroke-width="2.5"/><circle cx="163" cy="64" r="3.5" class="tdot"/><text x="182" y="68" font-size="11">trips running</text>')
+s.append('<line x1="150" y1="64" x2="176" y2="64" class="tline" stroke-width="1.5" stroke-opacity="0.6"/><text x="182" y="68" class="muted" font-size="11">trips running</text>')
 # shaded windows
 def band(h0, h1, label):
     x0 = ml + bw * h0; w = bw * (h1 - h0 + 1)
@@ -101,22 +101,21 @@ for frac in [0.25, 0.5, 0.75, 1.0]:
     dv = ymax * frac; y = yb(dv)
     s.append(f'<line x1="{ml}" y1="{y:.1f}" x2="{W-mr}" y2="{y:.1f}" class="grid" stroke-width="1"/>')
     s.append(f'<text x="{ml-6}" y="{y+3.5:.1f}" text-anchor="end" class="muted" font-size="10">{dv:.1f}</text>')
-    s.append(f'<text x="{W-mr+6}" y="{y+3.5:.1f}" class="tdot" font-size="10">{int(tmax*frac)}</text>')
+    s.append(f'<text x="{W-mr+6}" y="{y+3.5:.1f}" class="muted" font-size="10">{int(tmax*frac)}</text>')
 # bars (solid)
 for hour, avg, trips in rows:
     x = ml + bw * hour + bw * 0.15; w = bw * 0.7
     y = yb(avg); hgt = (mt + ph) - y
     s.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{w:.1f}" height="{hgt:.1f}" rx="2" class="bar"/>')
-# trips line on the right axis
+# trips line on the right axis — kept deliberately recessive (thin, faded, no markers)
+# so the eye stays on the delay bars, which are the main metric.
 pts = [(ml + bw * h + bw * 0.5, yt(t)) for (h, a, t) in rows]
-s.append(f'<path d="M {" L ".join(f"{x:.1f},{y:.1f}" for x,y in pts)}" fill="none" class="tline" stroke-width="2.5"/>')
-for x, y in pts:
-    s.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" class="tdot"/>')
+s.append(f'<path d="M {" L ".join(f"{x:.1f},{y:.1f}" for x,y in pts)}" fill="none" class="tline" stroke-width="1.5" stroke-opacity="0.6"/>')
 for hour in range(0, 24, 3):
     x = ml + bw * hour + bw * 0.5
     s.append(f'<text x="{x:.1f}" y="{mt+ph+18:.1f}" text-anchor="middle" class="muted" font-size="10">{hour:02d}:00</text>')
 s.append(f'<text x="{ml}" y="{H-8}" class="muted" font-size="10.5">left: avg arrival delay (min)</text>')
-s.append(f'<text x="{W-mr}" y="{H-8}" text-anchor="end" class="tdot" font-size="10.5">right: trips running</text>')
+s.append(f'<text x="{W-mr}" y="{H-8}" text-anchor="end" class="muted" font-size="10.5">right: trips running</text>')
 write("delay_by_hour.svg", "".join(s))
 
 # ============================================================ chart 2: delay accumulation (unchanged)
@@ -130,9 +129,9 @@ rows = con.execute(f"""
          round(avg(arrival_delay_seconds)/60.0,3) AS avg_min
   FROM t WHERE max_seq>0 GROUP BY 1 ORDER BY 1
 """).fetchall()
-W, H = 760, 340
-ml, mr, mt, mb = 46, 20, 72, 44
-pw, ph = W - ml - mr, H - mt - mb
+W, H = 760, 384          # extra bottom room for a small train motif
+ml, mr, mt, mb = 46, 20, 72, 88
+pw, ph = W - ml - mr, H - mt - mb   # plot area unchanged (ph=224) despite taller canvas
 ymax = 1.2
 def yb2(v): return mt + ph * (1 - v / ymax)
 def xb2(i): return ml + pw * (i / 9)
@@ -153,10 +152,24 @@ s.append(f'<text x="{pts[-1][0]:.1f}" y="{pts[-1][1]-10:.1f}" text-anchor="end" 
 s.append(f'<text x="{ml}" y="{mt+ph+20:.1f}" class="muted" font-size="10.5">trip start</text>')
 s.append(f'<text x="{W-mr}" y="{mt+ph+20:.1f}" text-anchor="end" class="muted" font-size="10.5">trip end</text>')
 s.append(f'<text x="{(ml+W-mr)/2:.1f}" y="{mt+ph+20:.1f}" text-anchor="middle" class="muted" font-size="10.5">position through journey (deciles)</text>')
+# --- small train motif, travelling toward "trip end" (right) ---
+ty = mt + ph + 44        # baseline for the motif
+# a faint track the whole width
+s.append(f'<line x1="{ml}" y1="{ty+16:.1f}" x2="{W-mr}" y2="{ty+16:.1f}" class="grid" stroke-width="1.5" stroke-dasharray="2 4"/>')
+tx = (ml + W - mr) / 2 - 26        # train body left edge (roughly centred)
+# motion streaks behind (left of) the train
+for k, dx in enumerate([-14, -22, -30]):
+    s.append(f'<line x1="{tx+dx:.1f}" y1="{ty+6+k*4:.1f}" x2="{tx+dx-10:.1f}" y2="{ty+6+k*4:.1f}" class="axis" stroke-width="1.5" opacity="0.5"/>')
+# body with a rounded nose pointing right
+s.append(f'<path d="M {tx:.1f},{ty} h34 q10,0 10,8 v0 q0,8 -10,8 h-34 q-4,0 -4,-4 v-8 q0,-4 4,-4 z" class="muted"/>')
+# window strip (lightens the body to suggest windows)
+s.append(f'<rect x="{tx+4:.1f}" y="{ty+3:.1f}" width="30" height="5" rx="1.5" fill="#ffffff" opacity="0.42"/>')
+# wheels
+s.append(f'<circle cx="{tx+9:.1f}" cy="{ty+18:.1f}" r="3" class="muted"/><circle cx="{tx+27:.1f}" cy="{ty+18:.1f}" r="3" class="muted"/>')
 write("delay_accumulation.svg", "".join(s))
 
 # ============================================================ chart 3: % of TRIPS with >=1 late stop, by line (real colours)
-rows = con.execute(f"""
+allrows = con.execute(f"""
   WITH trip_flags AS (
     SELECT trip_id, route_short_name,
            max(CASE WHEN arrival_delay_seconds>300 THEN 1 ELSE 0 END) AS had_late
@@ -167,62 +180,56 @@ rows = con.execute(f"""
          count(*) AS trips,
          sum(had_late) AS late_trips,
          round(100.0*sum(had_late)/count(*),1) AS pct_trips_late
-  FROM trip_flags GROUP BY 1 HAVING count(*)>=20 ORDER BY pct_trips_late DESC LIMIT 12
+  FROM trip_flags GROUP BY 1 HAVING count(*)>=20 ORDER BY pct_trips_late DESC
 """).fetchall()
-# Label sits ABOVE each bar (line names are long), bar + "late of total" value beneath.
-W = 760; rowh = 44; mt = 68; mb = 22; valw = 132
-H = mt + rowh * len(rows) + mb
+top5, bot5 = allrows[:5], allrows[-5:]
+items = [("H", "Most delay-prone")] + [("R",) + r for r in top5] + [("H", "Least delay-prone")] + [("R",) + r for r in bot5]
+# Label sits ABOVE each bar (line names are long); grouped top-5 / bottom-5 like the station chart.
+W = 760; rowh = 44; hh = 30; mt = 68; mb = 22; valw = 150
 pw = W - valw
-xmax = max(r[3] for r in rows) * 1.02
+xmax = max(r[3] for r in top5) * 1.02
+n_r = sum(1 for it in items if it[0] == "R"); n_h = sum(1 for it in items if it[0] == "H")
+H = mt + rowh * n_r + hh * n_h + mb
 s = [svg_open(W, H)]
 s.append('<text x="0" y="26" class="title" font-size="16">How often a line ran a late trip</text>')
 s.append('<text x="0" y="46" class="muted" font-size="12">Share of trips with at least one stop arriving &gt;5 min late, by line. Bars use each line’s official colour. Friday 18 Sep 2026.</text>')
-for i, (route, trips, late, pct) in enumerate(rows):
-    top = mt + i * rowh
-    bw_ = max(pw * (pct / xmax), 2)
-    color = LINE_COLORS.get(route, DEFAULT_LINE)
-    name = LINE_NAMES.get(route, "")
-    s.append(f'<text x="0" y="{top+12:.1f}" font-size="12"><tspan class="title">{esc(route)}</tspan> <tspan class="muted">· {esc(name)}</tspan></text>')
-    s.append(f'<rect x="0" y="{top+18:.1f}" width="{bw_:.1f}" height="14" rx="3" fill="{color}" class="chip"/>')
-    s.append(f'<text x="{bw_+8:.1f}" y="{top+29:.1f}" font-size="11">{pct:.1f}%  <tspan class="muted">({late} of {trips} trips)</tspan></text>')
-write("late_trips_by_line.svg", "".join(s))
-
-# ============================================================ chart 4: top 5 + bottom 5 stations by late arrivals
-top5 = con.execute(f"""
-  SELECT station, count(*) AS stops,
-         round(100.0*count(*) FILTER (WHERE arrival_delay_seconds>300)/count(*),1) AS pct_late
-  FROM main_marts.fct_stop_delays WHERE {FRI}
-  GROUP BY 1 HAVING count(*)>=150 ORDER BY pct_late DESC, stops DESC LIMIT 5
-""").fetchall()
-bot5 = con.execute(f"""
-  SELECT station, count(*) AS stops,
-         round(100.0*count(*) FILTER (WHERE arrival_delay_seconds>300)/count(*),1) AS pct_late
-  FROM main_marts.fct_stop_delays WHERE {FRI}
-  GROUP BY 1 HAVING count(*)>=150 ORDER BY pct_late ASC, stops DESC LIMIT 5
-""").fetchall()
-# Ordered list with two group headers.
-items = [("H", "Most late")] + [("R",) + r for r in top5] + [("H", "Least late")] + [("R",) + r for r in bot5]
-W = 760; rowh = 29; hh = 26; mt = 70; ml = 170; mr = 66; mb = 24
-n_rows = sum(1 for it in items if it[0] == "R"); n_hdr = sum(1 for it in items if it[0] == "H")
-H = mt + rowh * n_rows + hh * n_hdr + mb
-pw = W - ml - mr
-xmax = max(r[2] for r in top5) * 1.15
-s = [svg_open(W, H)]
-s.append('<text x="0" y="26" class="title" font-size="16">Most and least punctual stations</text>')
-s.append('<text x="0" y="46" class="muted" font-size="12">Share of arrivals more than 5 min late, by station (≥150 arrivals). Friday 18 Sep 2026.</text>')
 y = mt
 for it in items:
     if it[0] == "H":
-        s.append(f'<text x="0" y="{y+16:.1f}" class="muted" font-size="11" font-weight="600" letter-spacing="0.06em">{esc(it[1]).upper()}</text>')
+        s.append(f'<text x="0" y="{y+18:.1f}" class="muted" font-size="11" font-weight="600" letter-spacing="0.06em">{esc(it[1]).upper()}</text>')
         y += hh
     else:
-        _, station, stops, pct = it
-        name = station.replace(" Station", "")
-        bw_ = pw * (pct / xmax)
-        s.append(f'<text x="{ml-8}" y="{y+rowh/2+4:.1f}" text-anchor="end" font-size="11.5">{esc(name)}</text>')
-        s.append(f'<rect x="{ml}" y="{y+5:.1f}" width="{max(bw_,2):.1f}" height="{rowh-12:.1f}" rx="3" class="bar"/>')
-        s.append(f'<text x="{ml+max(bw_,2)+6:.1f}" y="{y+rowh/2+4:.1f}" font-size="11">{pct:.1f}%  <tspan class="muted">({stops})</tspan></text>')
+        _, route, trips, late, pct = it
+        bw_ = max(pw * (pct / xmax), 2)
+        color = LINE_COLORS.get(route, DEFAULT_LINE)
+        name = LINE_NAMES.get(route, "")
+        s.append(f'<text x="0" y="{y+12:.1f}" font-size="12"><tspan class="title">{esc(route)}</tspan> <tspan class="muted">· {esc(name)}</tspan></text>')
+        s.append(f'<rect x="0" y="{y+18:.1f}" width="{bw_:.1f}" height="14" rx="3" fill="{color}" class="chip"/>')
+        s.append(f'<text x="{bw_+8:.1f}" y="{y+29:.1f}" font-size="11">{pct:.1f}%  <tspan class="muted">({late} of {trips} trips)</tspan></text>')
         y += rowh
+write("late_trips_by_line.svg", "".join(s))
+
+# ============================================================ chart 4: top 8 stations by late arrivals
+rows = con.execute(f"""
+  SELECT station, count(*) AS stops,
+         round(100.0*count(*) FILTER (WHERE arrival_delay_seconds>300)/count(*),1) AS pct_late
+  FROM main_marts.fct_stop_delays WHERE {FRI}
+  GROUP BY 1 HAVING count(*)>=150 ORDER BY pct_late DESC, stops DESC LIMIT 8
+""").fetchall()
+W = 760; rowh = 30; mt = 72; ml = 170; mr = 66; mb = 26
+H = mt + rowh * len(rows) + mb
+pw = W - ml - mr
+xmax = max(r[2] for r in rows) * 1.15
+s = [svg_open(W, H)]
+s.append('<text x="0" y="26" class="title" font-size="16">The stations that saw the most late arrivals</text>')
+s.append('<text x="0" y="46" class="muted" font-size="12">Top 8 stations by share of arrivals more than 5 min late (≥150 arrivals). Friday 18 Sep 2026.</text>')
+for i, (station, stops, pct) in enumerate(rows):
+    y = mt + i * rowh
+    name = station.replace(" Station", "")
+    bw_ = pw * (pct / xmax)
+    s.append(f'<text x="{ml-8}" y="{y+rowh/2+4:.1f}" text-anchor="end" font-size="11.5">{esc(name)}</text>')
+    s.append(f'<rect x="{ml}" y="{y+5:.1f}" width="{max(bw_,2):.1f}" height="{rowh-12:.1f}" rx="3" class="bar"/>')
+    s.append(f'<text x="{ml+max(bw_,2)+6:.1f}" y="{y+rowh/2+4:.1f}" font-size="11">{pct:.1f}%  <tspan class="muted">({stops})</tspan></text>')
 write("late_arrivals_by_station.svg", "".join(s))
 
 con.close()
