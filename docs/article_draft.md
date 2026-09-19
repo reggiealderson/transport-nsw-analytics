@@ -46,6 +46,7 @@ and an honest account of **what one day of data can and cannot tell you**.
 - [Why I built this](#why-i-built-this)
 - [The system at a glance](#the-system-at-a-glance)
 - [Inputs: collecting a live feed, and the decisions behind it](#inputs-collecting-a-live-feed)
+- [Understanding the data: what a "trip" really is](#understanding-the-data)
 - [Processes: the dbt pipeline, explained for beginners](#processes-the-dbt-pipeline)
 - [The governance layer](#the-governance-layer)
 - [Outputs: what a day of Sydney train delays shows](#outputs-what-a-day-shows)
@@ -147,8 +148,80 @@ worth of trips as low-confidence data. Stop in the overnight lull and only a han
 affected. This isn't a bug to fix; it's a real property of the data to **design around and then
 document** — which is exactly the kind of judgement governance is about.
 
-By the end of the run the raw table held **[FILL AFTER DATA: ~N million]** rows across
-**[FILL AFTER DATA: N]** snapshots.
+By the end of the run the raw table held **8,262,921 rows** across **2,159 snapshots**, spanning
+Friday 00:10 to Saturday 12:10. *(The analysis uses only a clean 24-hour slice of that — see the
+next section.)*
+
+---
+
+## Understanding the data: what a "trip" really is {#understanding-the-data}
+
+*This section is for anyone who wants to replicate this with the TfNSW feed. A few things about
+the data are non-obvious and will bite you if you don't know them.*
+
+### A `trip_id` is not a unique journey
+
+The natural assumption is that `trip_id` uniquely identifies one train journey. It does not. A
+`trip_id` like "the 07:15 Central→Hornsby" is **reused every day that service runs.** In our own
+36-hour collection, **518 `trip_id`s appeared on both Friday and Saturday**, and **2,761
+`(trip_id, stop_id)` combinations were seen on more than one day.** So to identify a single, real
+*instance* of a journey you need a **composite key: `trip_id` + the service date it ran.**
+
+This isn't academic — it exposed a real bug in our first pipeline. Our deduplication step keeps,
+for each `(trip_id, stop_id)`, the *latest* reading. Run it over two days and it silently merges
+Friday's and Saturday's runs of the same service into one, keeping only the later. Worse, our
+`unique` test on `(trip_id, stop_id)` **passed anyway** — because deduplication *guarantees*
+uniqueness on that key by construction, so the test literally could not detect the problem. **The
+lesson: a green quality test is not proof of correctness — you have to test at the right grain.**
+The fix is to key everything on `trip_id + stop_id + service_date`.
+
+### The service day: why timetable times run past `24:00:00`
+
+A "day of service" in transit does not run midnight-to-midnight. It runs from one quiet point in
+the small hours to the next (conventionally ~3am), so that late-night trains stay grouped with the
+day they belong to. A train departing **Friday 11:50pm** and arriving **Saturday 12:40am** is part
+of **Friday's** service — and the timetable writes that arrival as `24:40:00`, not `00:40:00`, to
+say "still Friday's service day, just past midnight." That's why arrival/departure times in the
+static schedule can exceed 24 hours, and why you must never load them as a normal clock time.
+
+So a **service date** answers *"which day's timetable does this run belong to?"* — not *"what's
+today's calendar date?"*
+
+### A governance footnote: the empty `start_date`
+
+The realtime feed *has* a field for exactly this — `start_date`, meant to carry each trip's service
+date. **Transport for NSW leaves it empty** — it's an optional field in the GTFS-Realtime
+specification, and it is blank in **100% of all 8.26 million rows** we collected. Our extraction is
+the standard one; this is an upstream choice, not a collection error. It's a small but real
+**data-completeness gap in the source**, and the governed response is to (a) record it as a known
+source limitation and (b) **derive the service date ourselves** from the observation timestamps —
+which is what we do, so downstream models never depend on a field the provider doesn't populate.
+
+### Three different "start" times
+
+Once you have a service date, a single journey actually has three distinct start timestamps, and
+keeping them separate matters:
+
+1. **Scheduled start** — from the static timetable: the scheduled departure from the origin stop.
+   *When it was meant to leave.*
+2. **Actual start** — scheduled start plus the observed departure delay at the origin. *When it
+   actually left.* Measurable for ~86% of trips here (the feed doesn't always report the origin).
+3. **Feed-appearance time** — the first snapshot in which the trip appeared. This is a *collection
+   artifact* (when the operator published it), not a real event — useful only for validating how
+   far ahead of departure trips enter the feed. **[VERIFY — report the measured lead-time
+   distribution after rebuild.]**
+
+Scheduled-vs-actual is a real punctuality signal; feed-appearance is methodology. Conflating them
+(as it's tempting to do) would quietly turn a data-pipeline quirk into a fake finding.
+
+### One fixed day here; a rolling window in practice
+
+For this article we analyse a **single fixed 24-hour window** (trips running from ~1am Friday to
+~1am Saturday) — a deliberate, simple scope for a one-day piece. But note the honest limitation:
+**a fixed cutoff arbitrarily truncates any trip straddling the boundary.** A production system
+doing ongoing multi-day analytics would instead use a **rolling window** keyed on `service_date`,
+so no journey is ever cut in half by an arbitrary edge. The composite-key and derived-service-date
+work above is precisely what makes that future rolling approach possible without re-architecting.
 
 ---
 
@@ -278,6 +351,10 @@ reframed as acknowledged risk rather than buried caveats.
 - **Which lines and stations had the worst on-time performance?** **[CHART]** bar chart, top N.
 - **Do delays accumulate as a trip progresses?** **[CHART]** delay vs stop-sequence.
 - **Was the morning peak worse than the evening peak?** **[CHART]** delay by hour-of-day.
+- **How punctual are departures?** Scheduled vs actual origin-departure time (see the three
+  start-times above). **[CHART]** distribution of origin departure delay.
+- **Feed-behaviour check:** how far ahead of scheduled departure does a trip appear in the feed?
+  **[VERIFY / CHART]** lead-time distribution (validates the "first-seen ≈ departure" assumption).
 - Headline numbers: median delay, % of stops within 5 min, worst single corridor. **[FILL AFTER DATA]**
 
 Frame every finding as *"for this one weekday, using estimated-actual readings"* — not as a
