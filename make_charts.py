@@ -152,20 +152,32 @@ s.append(f'<text x="{pts[-1][0]:.1f}" y="{pts[-1][1]-10:.1f}" text-anchor="end" 
 s.append(f'<text x="{ml}" y="{mt+ph+20:.1f}" class="muted" font-size="10.5">trip start</text>')
 s.append(f'<text x="{W-mr}" y="{mt+ph+20:.1f}" text-anchor="end" class="muted" font-size="10.5">trip end</text>')
 s.append(f'<text x="{(ml+W-mr)/2:.1f}" y="{mt+ph+20:.1f}" text-anchor="middle" class="muted" font-size="10.5">position through journey (deciles)</text>')
-# --- small train motif, travelling toward "trip end" (right) ---
-ty = mt + ph + 44        # baseline for the motif
-# a faint track the whole width
-s.append(f'<line x1="{ml}" y1="{ty+16:.1f}" x2="{W-mr}" y2="{ty+16:.1f}" class="grid" stroke-width="1.5" stroke-dasharray="2 4"/>')
-tx = (ml + W - mr) / 2 - 26        # train body left edge (roughly centred)
-# motion streaks behind (left of) the train
-for k, dx in enumerate([-14, -22, -30]):
-    s.append(f'<line x1="{tx+dx:.1f}" y1="{ty+6+k*4:.1f}" x2="{tx+dx-10:.1f}" y2="{ty+6+k*4:.1f}" class="axis" stroke-width="1.5" opacity="0.5"/>')
-# body with a rounded nose pointing right
-s.append(f'<path d="M {tx:.1f},{ty} h34 q10,0 10,8 v0 q0,8 -10,8 h-34 q-4,0 -4,-4 v-8 q0,-4 4,-4 z" class="muted"/>')
-# window strip (lightens the body to suggest windows)
-s.append(f'<rect x="{tx+4:.1f}" y="{ty+3:.1f}" width="30" height="5" rx="1.5" fill="#ffffff" opacity="0.42"/>')
-# wheels
-s.append(f'<circle cx="{tx+9:.1f}" cy="{ty+18:.1f}" r="3" class="muted"/><circle cx="{tx+27:.1f}" cy="{ty+18:.1f}" r="3" class="muted"/>')
+# --- small electric-train motif, travelling toward "trip end" (right) ---
+tx = (ml + W - mr) / 2 - 36     # body left edge (~centred); body is 72 wide
+T = mt + ph + 34                # body top (~330)
+BODY_W = 72
+# faint dashed track under the wheels, full width
+s.append(f'<line x1="{ml}" y1="{T+30:.1f}" x2="{W-mr}" y2="{T+30:.1f}" class="grid" stroke-width="1.5" stroke-dasharray="2 4"/>')
+# motion streaks trailing behind (left)
+for k, dx in enumerate([-12, -20, -28]):
+    s.append(f'<line x1="{tx+dx:.1f}" y1="{T+7+k*5:.1f}" x2="{tx+dx-11:.1f}" y2="{T+7+k*5:.1f}" class="axis" stroke-width="1.5" opacity="0.5"/>')
+# pantograph on the roof (electric train cue)
+s.append(f'<path d="M {tx+18:.1f},{T} L {tx+24:.1f},{T-7:.1f} L {tx+34:.1f},{T:.1f}" fill="none" class="axis" stroke-width="1.2"/>')
+s.append(f'<line x1="{tx+20:.1f}" y1="{T-7:.1f}" x2="{tx+32:.1f}" y2="{T-7:.1f}" class="axis" stroke-width="1.4"/>')
+# body: rounded rect with a swept-down cab front on the right
+s.append(f'<path d="M {tx:.1f},{T+5:.1f} Q {tx:.1f},{T:.1f} {tx+5:.1f},{T:.1f} '
+         f'H {tx+BODY_W-14:.1f} Q {tx+BODY_W:.1f},{T:.1f} {tx+BODY_W:.1f},{T+12:.1f} '
+         f'V {T+18:.1f} Q {tx+BODY_W:.1f},{T+22:.1f} {tx+BODY_W-4:.1f},{T+22:.1f} '
+         f'H {tx+4:.1f} Q {tx:.1f},{T+22:.1f} {tx:.1f},{T+17:.1f} Z" class="muted"/>')
+# livery stripe along the lower body
+s.append(f'<rect x="{tx+2:.1f}" y="{T+15:.1f}" width="{BODY_W-6:.1f}" height="3" rx="1.5" class="bar" opacity="0.85"/>')
+# passenger windows (row of 4) + slanted cab windscreen at the front
+for wx in range(0, 4):
+    s.append(f'<rect x="{tx+7+wx*13:.1f}" y="{T+5:.1f}" width="9" height="6" rx="1.5" fill="#ffffff" opacity="0.5"/>')
+s.append(f'<path d="M {tx+BODY_W-11:.1f},{T+5:.1f} H {tx+BODY_W-3:.1f} L {tx+BODY_W-2:.1f},{T+11:.1f} H {tx+BODY_W-11:.1f} Z" fill="#ffffff" opacity="0.5"/>')
+# two bogies (pairs of wheels) rather than two lone circles
+for cx in [tx+15, tx+BODY_W-17]:
+    s.append(f'<circle cx="{cx-5:.1f}" cy="{T+25:.1f}" r="3" class="muted"/><circle cx="{cx+5:.1f}" cy="{T+25:.1f}" r="3" class="muted"/>')
 write("delay_accumulation.svg", "".join(s))
 
 # ============================================================ chart 3: % of TRIPS with >=1 late stop, by line (real colours)
@@ -182,7 +194,8 @@ allrows = con.execute(f"""
          round(100.0*sum(had_late)/count(*),1) AS pct_trips_late
   FROM trip_flags GROUP BY 1 HAVING count(*)>=20 ORDER BY pct_trips_late DESC
 """).fetchall()
-top5, bot5 = allrows[:5], allrows[-5:]
+top5 = allrows[:5]
+bot5 = list(reversed(allrows[-5:]))   # least delay-prone on top, ascending
 items = [("H", "Most delay-prone")] + [("R",) + r for r in top5] + [("H", "Least delay-prone")] + [("R",) + r for r in bot5]
 # Label sits ABOVE each bar (line names are long); grouped top-5 / bottom-5 like the station chart.
 W = 760; rowh = 44; hh = 30; mt = 68; mb = 22; valw = 150
