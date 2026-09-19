@@ -115,7 +115,7 @@ box(colx["in"], 156, colw["in"], 52, [("GTFS-Realtime", False), ("trip updates �
 # processes
 box(colx["proc"], 88, colw["proc"], 46, [("poll_rt.py", False), ("60s snapshots → DuckDB", True)])
 box(colx["proc"], 150, colw["proc"], 46, [("dbt models", False), ("staging → intermediate → mart", True)])
-box(colx["proc"], 212, colw["proc"], 46, [("23 quality tests", False), ("DAMA-DMBOK dimensions", True)])
+box(colx["proc"], 212, colw["proc"], 46, [("quality tests", False), ("DAMA-DMBOK dimensions", True)])
 # outputs
 box(colx["out"], 84, colw["out"], 40, [("fct_stop_delays", False)], cls="obox")
 box(colx["out"], 132, colw["out"], 40, [("quality scorecard", False)], cls="obox")
