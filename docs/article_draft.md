@@ -302,8 +302,30 @@ partial slice, 28 passed and 2 warned — and one warning was the framework earn
 consistency test caught a feed prediction of nearly 13 hours, an implausible value flagged for
 review rather than silently trusted.
 
-**[SCORECARD]** Final data-quality scorecard against the full dataset — one row per dimension:
-test, result, pass rate, and what it means. Build from `dbt build` results after the full run.
+The **data-quality scorecard** turns those test results into a one-page, plain-English report — for
+each dimension: the test, the result, the numbers, and what it means (full version in
+`docs/quality_scorecard.md`). On the full-data build: **37 checks passed, 4 warned, 0 failed.** The
+passes cover completeness (all keys populated), uniqueness (one delay per stop per service day — at
+the *correct* grain, see below), validity (the confidence flag is always legal), and timeliness
+(**zero gaps across all 2,160 snapshots** — the 60-second cadence never broke). The warnings are the
+interesting part.
+
+**What "referential integrity" caught, in plain terms.** A realtime update identifies its train only
+by a `trip_id`; to attach real station names and a schedule we **join that id to the static
+timetable**. An **orphan** is a realtime `trip_id` with *no match* in the timetable we downloaded —
+an update we can't tie to any scheduled service. On **Friday just 1.7% of trips were orphans (98.3%
+matched); on Saturday, 87.6% were orphans.** The cause isn't corruption — it's **versioning**: TfNSW
+republishes the timetable every night and re-mints its `trip_id`s, and we downloaded it once (on
+Friday). By Saturday the realtime feed was quoting a *newer* timetable's ids that our single copy
+didn't contain. Scoping the analysis to Friday keeps integrity at 98.3%; the lesson — *you must join
+realtime to the timetable version that was live at the time* — is the project's clearest governance
+takeaway.
+
+**A green test that had been lying.** The uniqueness test *passed* even while an earlier version of
+the pipeline was silently merging the same `trip_id` across two days — because deduplication makes a
+key unique *by construction*, so the test couldn't see the collision. Fixing the key to
+`trip_id + stop_id + service_date` fixed the model; the lesson is that **a passing test proves
+nothing unless it checks the right grain.**
 
 ### 2. Privacy — a mini Privacy Impact Assessment
 
@@ -344,21 +366,41 @@ reframed as acknowledged risk rather than buried caveats.
 
 ## Outputs: what a day of Sydney train delays shows {#outputs-what-a-day-shows}
 
-> **[FILL AFTER DATA]** This section is deliberately empty until the full weekday is collected and
-> the mart is rebuilt. Answer these questions from `fct_stop_delays` (estimated_actual rows only,
-> and state that constraint), each with a chart and an honest confidence caveat:
+All figures below are for the **Friday service day**, using **estimated-actual** readings only —
+51,111 stop records across 3,656 trips and 321 stations. Read them as *"what happened on this one
+weekday,"* not a verdict on the network in general.
 
-- **Which lines and stations had the worst on-time performance?** **[CHART]** bar chart, top N.
-- **Do delays accumulate as a trip progresses?** **[CHART]** delay vs stop-sequence.
-- **Was the morning peak worse than the evening peak?** **[CHART]** delay by hour-of-day.
-- **How punctual are departures?** Scheduled vs actual origin-departure time (see the three
-  start-times above). **[CHART]** distribution of origin departure delay.
-- **Feed-behaviour check:** how far ahead of scheduled departure does a trip appear in the feed?
-  **[VERIFY / CHART]** lead-time distribution (validates the "first-seen ≈ departure" assumption).
-- Headline numbers: median delay, % of stops within 5 min, worst single corridor. **[FILL AFTER DATA]**
+**The headline: it was a good day for the network.** The median arrival delay was **0.0 minutes**,
+**97.5%** of stops were within five minutes of schedule, and only **2.5%** ran more than five minutes
+late. Trains also *left* their origin essentially on time (median origin-departure delay 0.0 min).
+**[CHART]** delay distribution.
 
-Frame every finding as *"for this one weekday, using estimated-actual readings"* — not as a
-general claim about the network.
+**Delay accumulates as a journey goes on.** Trains start on time but slowly lose it: average delay
+roughly **doubles** from the start of a trip to the end — about 0.4 min in the first tenth of a
+journey, rising to ~1.0 min in the final tenth. The amounts are small, but the build-up is clear and
+monotonic: the further along a train is, the more time it has shed. **[CHART]** average delay by
+position through the trip.
+
+**The surprise: midday, not rush hour, was worst.** Conventional wisdom says the peaks are the
+problem. Not this Friday. The **morning peak (7–9am) was the *best* window** (avg 0.38 min, 1.5% of
+stops >5 min late), and the evening peak (4–7pm) nearly matched it (0.56 min, 1.4%). The worst window
+was the **middle of the day (10am–3pm)**: avg 0.95 min and 4.3% of stops >5 min late, peaking around
+noon (7.8% late). An average-delay metric and a percentage-late metric agree, so it isn't a single
+outlier. **[CHART]** delay by hour of day. *(I won't over-claim the cause — off-peak track work and
+thinner recovery capacity are plausible — but the pattern is real and worth surfacing.)*
+
+**Even the "worst" lines and stations were barely late.** The lines with the most lateness were
+**SHL** and **T7** (SHL: 7.3% of stops >5 min late, median 0.92 min); every suburban **T-line had a
+median of zero**. The most-delayed stations — **Cronulla** and **Jannali**, both on the Cronulla
+branch — still had medians under half a minute. On this day, no corner of the network was performing
+badly. **[CHART/TABLE]** worst lines.
+
+**A methodology aside that became a finding.** Trips appear in the realtime feed a **median of 24.5
+minutes** before their scheduled departure — but with a wide spread (10th percentile 1.5 min, 90th
+~2.5 hours), and 133 trips appeared *after* their scheduled time. This is exactly why we defined
+"actual start" from the origin *departure delay* rather than from when a trip first appears: the
+feed's appearance time is far too loose to stand in for a real departure. **[CHART]** feed lead-time
+distribution.
 
 ---
 
@@ -380,6 +422,24 @@ This is a one-day proof, and being clear about its edges is part of the point �
   of them.
 - **Docs are regenerated by hand, not CI/CD.** In production you'd auto-generate and host the
   documentation on every merge, with freshness timestamps. Here it's a manual regenerate-and-copy.
+
+### Would this methodology survive multi-day analysis?
+
+Worth asking of any pipeline: does it scale beyond today's one-day run to weeks or months? Here the
+answer splits cleanly, and knowing *which* half is which is the point:
+
+- **The data modelling is ready.** Trip identity (`trip_id + service_date`), the derived service day,
+  the dedup grain, and the marts were all built per-instance, and the 24-hour scope is a *filter*,
+  not something baked into the models — so a rolling multi-day window needs no re-work.
+- **Two things must change first.** (1) **Static ingestion** — we download the timetable once, but
+  its `trip_id`s change nightly (that's the 87.6%-Saturday finding), so a real pipeline must archive
+  and version the timetable *per day* and join each day to its own. (2) **The confidence rule** —
+  `estimated_actual` vs `prediction` is decided against the end of *this one batch*, which is
+  meaningless for a never-ending pipeline; it would need a rolling definition. Add incremental loads
+  instead of full rebuilds, and it scales.
+
+The honest one-liner: *the modelling is multi-day-ready by design; the ingestion and confidence
+logic are deliberate single-run simplifications.*
 
 What more could be done, given more than a day: multi-week collection, weekday-vs-weekend and
 seasonal comparisons, the same governance layer on a cloud platform with a real catalogue, and an
