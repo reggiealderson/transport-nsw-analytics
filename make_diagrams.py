@@ -60,11 +60,11 @@ hours = con.execute(f"""
 """).fetchall()
 con.close()
 
-W, H = 760, 250
+W, H = 760, 190
 s = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="100%" role="img">{STYLE}']
 # faint "skyline" of the day's hourly delays across the bottom
 bx0, bw = 24, (W - 48) / 24
-base = 196
+base = 150
 ymax = max(h[1] for h in hours)
 for h, v in hours:
     bh = 8 + 58 * (v / ymax)
@@ -74,18 +74,12 @@ s.append(f'<line x1="24" y1="{base:.1f}" x2="{W-24}" y2="{base:.1f}" class="trac
 for i in range(9):
     x = 24 + i * (W - 48) / 8
     s.append(f'<circle cx="{x:.1f}" cy="{base:.1f}" r="2.5" class="track" fill="none" stroke-width="1.5"/>')
-# a "scheduled vs actual" gap marker
+# a "scheduled vs actual" gap marker (no labels — the banner carries no text)
 sched_x = 560
 s.append(f'<line x1="{sched_x}" y1="{base-30:.1f}" x2="{sched_x}" y2="{base+8:.1f}" class="track" stroke-width="1.4" stroke-dasharray="3 3"/>')
-s.append(f'<text x="{sched_x+6}" y="{base-20:.1f}" class="muted" font-size="11">scheduled</text>')
-# the train, running a little behind the scheduled mark
+# the train, running a little behind the scheduled mark, with a gap indicator
 s.append(train(452, base - 22, scale=1.15))
-s.append(f'<path d="M {524},{base-30:.1f} h30" class="accent" stroke="#1c7ed6" stroke-width="0" />')
 s.append(f'<line x1="524" y1="{base-30:.1f}" x2="{sched_x-2}" y2="{base-30:.1f}" class="arrow" stroke-width="1.4"/>')
-s.append(f'<text x="524" y="{base-34:.1f}" class="muted" font-size="11">running late</text>')
-# tagline (title is rendered as the page heading, so it is not repeated here)
-s.append('<text x="24" y="58" class="muted" font-size="14">A weekday of Sydney train data, explored with dbt and data governance.</text>')
-s.append('<text x="24" y="82" class="muted" font-size="11.5" opacity="0.85">TfNSW GTFS-Realtime · 8.26M rows collected · 51,111 estimated-actual arrivals analysed</text>')
 s.append("</svg>")
 with open(f"{OUT}/hero.svg", "w") as f:
     f.write("".join(s))
