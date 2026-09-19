@@ -144,4 +144,44 @@ s.append("</svg>")
 with open(f"{OUT}/pipeline.svg", "w") as f:
     f.write("".join(s))
 print(f"  wrote {OUT}/pipeline.svg")
+
+
+# ------------------------------------------------------------------ governance injection diagram
+W, H = 760, 322
+s = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="100%" role="img">{STYLE}']
+s.append('<text x="0" y="22" class="title" font-size="15">Where governance enters the pipeline</text>')
+s.append('<text x="0" y="42" class="muted" font-size="12">Tests, classification and descriptions attach to each dbt model; the artifacts below are generated from them.</text>')
+
+sw, sh, sy = 150, 40, 66
+stages = [("Raw feeds", 8), ("Staging", 196), ("Intermediate", 384), ("Mart", 572)]
+for name, x in stages:
+    s.append(f'<rect x="{x}" y="{sy}" width="{sw}" height="{sh}" rx="8" class="box" stroke-width="1.2"/>')
+    s.append(f'<text x="{x+sw/2}" y="{sy+sh/2+4}" text-anchor="middle" class="title" font-size="12">{esc(name)}</text>')
+for x in [8, 196, 384]:
+    arrow(x+sw, sy+sh/2, x+188, sy+sh/2)
+
+# governance band under Staging..Mart
+bx, by, bw, bh = 196, 128, 526, 60
+s.append(f'<rect x="{bx}" y="{by}" width="{bw}" height="{bh}" rx="10" class="obox" stroke-width="1.2"/>')
+s.append(f'<text x="{bx+14}" y="{by+17}" class="muted" font-size="10.5" font-weight="600" letter-spacing="0.07em">GOVERNANCE, APPLIED AT EACH MODEL</text>')
+for label, x in [("quality tests (DAMA)", 210), ("classification tags", 380), ("column descriptions", 550)]:
+    s.append(f'<rect x="{x}" y="{by+28}" width="158" height="22" rx="6" class="box" stroke-width="1"/>')
+    s.append(f'<text x="{x+79}" y="{by+43}" text-anchor="middle" font-size="10.5">{esc(label)}</text>')
+# dashed connectors: model stages drop into the band
+for x in [196, 384, 572]:
+    s.append(f'<line x1="{x+sw/2}" y1="{sy+sh}" x2="{x+sw/2}" y2="{by}" class="track" stroke-width="1" stroke-dasharray="2 3"/>')
+
+# outputs generated from the governance layer
+oy, oh = 240, 44
+outs = [("Quality", "scorecard", 196), ("Data dictionary", "+ lineage graph", 384), ("Privacy +", "policy docs", 572)]
+for l1, l2, x in outs:
+    s.append(f'<rect x="{x}" y="{oy}" width="{sw}" height="{oh}" rx="8" class="obox" stroke-width="1.2"/>')
+    s.append(f'<text x="{x+sw/2}" y="{oy+19}" text-anchor="middle" font-size="11.5" class="title">{esc(l1)}</text>')
+    s.append(f'<text x="{x+sw/2}" y="{oy+34}" text-anchor="middle" font-size="11.5" class="title">{esc(l2)}</text>')
+for x in [196, 384, 572]:
+    varrow(x+sw/2, by+bh, oy)
+s.append("</svg>")
+with open(f"{OUT}/governance.svg", "w") as f:
+    f.write("".join(s))
+print(f"  wrote {OUT}/governance.svg")
 print("Done.")
