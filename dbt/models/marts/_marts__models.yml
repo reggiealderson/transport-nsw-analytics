@@ -14,10 +14,13 @@ models:
         * Timeliness    -> singular test tests/assert_snapshot_cadence.sql
     columns:
       - name: stop_delay_key
-        description: Surrogate key, trip_id || '-' || stop_id. DAMA UNIQUENESS.
+        description: Surrogate key, trip_id || '-' || stop_id || '-' || service_date. DAMA UNIQUENESS (correct grain — one estimate per stop per service day).
         data_tests: [not_null, unique]
       - name: trip_id
         description: DAMA COMPLETENESS — must always be present.
+        data_tests: [not_null]
+      - name: service_date
+        description: Derived service day; part of the trip-instance identity. DAMA COMPLETENESS.
         data_tests: [not_null]
       - name: stop_id
         description: DAMA COMPLETENESS — must always be present.
@@ -39,3 +42,25 @@ models:
       - name: station
         description: Parent-station name (falls back to platform name if none).
         data_tests: [not_null]
+
+  - name: fct_trip_punctuality
+    description: >
+      One row per journey instance (trip_id + service_date): scheduled vs actual origin departure,
+      and the feed-appearance lead time. Trip-level companion to fct_stop_delays. Day-agnostic
+      (contains all service days); scope to one service_date for single-day analysis.
+    columns:
+      - name: trip_instance_key
+        description: Surrogate key, trip_id || '-' || service_date. DAMA UNIQUENESS (one row per journey instance).
+        data_tests: [not_null, unique]
+      - name: trip_id
+        data_tests: [not_null]
+      - name: service_date
+        data_tests: [not_null]
+      - name: scheduled_start
+        description: >
+          Scheduled origin departure. DAMA COMPLETENESS, warn-only: null when the static schedule
+          lacks a departure time for the origin, or the trip has no matching static origin.
+        data_tests:
+          - not_null:
+              config:
+                severity: warn

@@ -30,5 +30,9 @@ select
     _loaded_at                                                     as snapshot_ts,
     _loaded_at at time zone 'Australia/Sydney'                     as snapshot_ts_syd,
 
-    try_cast(strptime(nullif(start_date, ''), '%Y%m%d') as date)   as service_date
+    -- service_date is DERIVED: the feed's own start_date is empty (see docs), so we
+    -- compute the service day ourselves. A transit "service day" runs ~3am-to-3am, so we
+    -- shift the Sydney wall-clock back 3 hours before taking the date. This groups
+    -- post-midnight trains (e.g. a 00:40 arrival) with the day they actually belong to.
+    (((_loaded_at at time zone 'Australia/Sydney') - interval 3 hour))::date as service_date
 from source

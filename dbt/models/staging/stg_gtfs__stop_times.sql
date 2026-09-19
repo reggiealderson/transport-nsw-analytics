@@ -25,6 +25,13 @@ select
       + cast(split_part(arrival_time, ':', 3) as integer)
     end as arrival_seconds_past_midnight,
 
+    -- same for departure (used to derive each trip's scheduled journey start at its origin)
+    case when nullif(departure_time, '') is not null then
+        cast(split_part(departure_time, ':', 1) as integer) * 3600
+      + cast(split_part(departure_time, ':', 2) as integer) * 60
+      + cast(split_part(departure_time, ':', 3) as integer)
+    end as departure_seconds_past_midnight,
+
     try_cast(nullif(pickup_type, '')   as integer) as pickup_type,
     try_cast(nullif(drop_off_type, '') as integer) as drop_off_type
 from source

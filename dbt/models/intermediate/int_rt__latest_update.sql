@@ -16,6 +16,7 @@
 with base as (
     select
         trip_id,
+        service_date,
         stop_id,
         arrival_delay_seconds,
         departure_delay_seconds,
@@ -28,7 +29,7 @@ ranked as (
     select
         *,
         row_number() over (
-            partition by trip_id, stop_id
+            partition by trip_id, stop_id, service_date   -- service_date: distinguishes same trip_id across days
             order by snapshot_ts desc
         ) as rn
     from base
@@ -40,6 +41,7 @@ collection_end as (
 
 select
     r.trip_id,
+    r.service_date,
     r.stop_id,
     r.arrival_delay_seconds,
     r.departure_delay_seconds,

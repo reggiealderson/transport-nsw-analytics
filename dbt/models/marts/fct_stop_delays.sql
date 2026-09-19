@@ -24,10 +24,11 @@ routes as (
 )
 
 select
-    -- surrogate key for the uniqueness test (one estimate per trip+stop)
-    latest.trip_id || '-' || latest.stop_id                    as stop_delay_key,
+    -- surrogate key for the uniqueness test (one estimate per trip+stop+service_date)
+    latest.trip_id || '-' || latest.stop_id || '-' || latest.service_date  as stop_delay_key,
 
     latest.trip_id,
+    latest.service_date,
     latest.stop_id,
     coalesce(parent.stop_name, platform.stop_name)             as station,
     routes.route_short_name,

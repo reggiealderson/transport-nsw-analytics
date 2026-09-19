@@ -3,10 +3,13 @@ version: 2
 models:
   - name: int_rt__latest_update
     description: >
-      The last observed delay per (trip, stop), with a confidence classification of
-      'estimated_actual' vs 'prediction' (DATA_FINDINGS §3.6–3.7). One row per trip+stop.
+      The last observed delay per (trip, stop, service_date), with a confidence classification of
+      'estimated_actual' vs 'prediction' (DATA_FINDINGS §3.6–3.7). One row per trip+stop+service_date.
     columns:
       - name: trip_id
+        data_tests: [not_null]
+      - name: service_date
+        description: Derived service day (distinguishes the same trip_id across days).
         data_tests: [not_null]
       - name: stop_id
         data_tests: [not_null]
@@ -16,3 +19,14 @@ models:
           - accepted_values:
               arguments:
                 values: ['estimated_actual', 'prediction']
+
+  - name: int_rt__trip_instances
+    description: >
+      One row per journey instance (trip_id + service_date), with the three start timestamps —
+      scheduled_start (timetable), actual_start (scheduled + observed origin departure delay), and
+      feed_first_seen (a collection artifact) — plus feed_lead_seconds for the feed-behaviour check.
+    columns:
+      - name: trip_id
+        data_tests: [not_null]
+      - name: service_date
+        data_tests: [not_null]
