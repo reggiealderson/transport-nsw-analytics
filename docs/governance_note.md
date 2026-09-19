@@ -46,6 +46,39 @@ new platform, or an altered timetable appears **silently** in the next day's bun
   keyed by ingest date so a realtime snapshot can always be joined to the schedule that
   was actually in force when it was collected.
 
+### Is this methodology sound for MULTI-day analysis?
+
+A methodology should be judged not just on today's one-day run but on whether it survives
+being scaled to weeks or months of data. Assessed on that basis:
+
+**What already transfers cleanly (designed for it):**
+- **Trip identity** — the composite key `trip_id + service_date`, and the derived
+  `service_date` (3am service-day boundary). This exists *specifically* so the same `trip_id`
+  on different days is never conflated. (We proved the failure it prevents: 518 `trip_id`s
+  recurred across just two days.)
+- **Dedup grain, the three start-times, and the marts** are all keyed per instance, and the
+  24-hour scope is applied as a *filter* rather than baked into the models — so a rolling,
+  multi-day window needs no re-modelling.
+
+**What does NOT transfer as built (must change before multi-day use):**
+- **Static-schedule ingestion — the blocker.** We download the bundle once. Because TfNSW
+  regenerates `trip_id`s each daily republish, a single bundle only matches its *own* day
+  (empirically: Friday 98.3% match, Saturday 12.4%). Any multi-day pipeline **must** ingest
+  and version the bundle *per day* and join each service date's realtime to the schedule that
+  was in force that day. This is the single biggest change required.
+- **Confidence classification.** `estimated_actual` vs `prediction` is currently decided by
+  comparing a stop's last sighting to the **global maximum snapshot of the whole batch**. That
+  is correct for a bounded one-off run, but wrong for a continuous pipeline, where "the end of
+  the run" is not a meaningful point. A rolling system needs a different rule — e.g. a stop is
+  `estimated_actual` once its trip has completed / it has been absent for N snapshots.
+- **Load strategy.** Models here fully rebuild each run. Over months that becomes slow and
+  wasteful; a production version would materialise **incrementally**, partitioned by
+  `service_date`.
+
+The takeaway for the write-up: the *dimensional modelling* is multi-day-ready by design, but
+the *ingestion and confidence logic* are deliberate one-run simplifications that would be
+re-engineered before scaling. Naming that distinction precisely is itself the governance skill.
+
 ### Realtime data — retention
 Realtime snapshots are appended to `raw_rt.trip_updates` and kept for the life of the
 run (see the size projection in the poller notes: ~5M rows / a few hundred MB for a
