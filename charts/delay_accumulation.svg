@@ -2,11 +2,13 @@
 text{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;fill:#1a1a1a}
 .muted{fill:#6a6a6a}.title{font-weight:600}
 .bar{fill:#1c7ed6}.line{stroke:#1c7ed6}.dot{fill:#1c7ed6}
+.tline{stroke:#e8833a}.tdot{fill:#e8833a}
 .grid{stroke:#e2e5ea}.axis{stroke:#c9ccd1}.band{fill:#000;opacity:0.045}
 .chip{stroke:#00000022;stroke-width:1}
 @media (prefers-color-scheme:dark){
  text{fill:#e8e8e8}.muted{fill:#9aa0a6}
  .bar{fill:#4dabf7}.line{stroke:#4dabf7}.dot{fill:#4dabf7}
+ .tline{stroke:#f0a868}.tdot{fill:#f0a868}
  .grid{stroke:#3a3f47}.axis{stroke:#565c66}.band{fill:#fff;opacity:0.06}
  .chip{stroke:#ffffff33}
 }
